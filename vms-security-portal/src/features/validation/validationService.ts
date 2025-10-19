@@ -11,15 +11,32 @@ const SECURITY_URL = "/security";
  * POST /security/validate
  */
 export async function validateAccessCode(code: string): Promise<ValidationResponse> {
-  try {
-    const response = await apiClient.post<ApiResponse<ValidationResult>>(
-      `${SECURITY_URL}/validate`,
-      { code }
-    );
-    return response.data;
-  } catch (error) {
-    return handleApiError(error);
-  }
+	try {
+		const response = await apiClient.post<ApiResponse<any>>(
+			`${SECURITY_URL}/validate`,
+			{ code }
+		);
+
+		const data = response.data.data;
+
+		const formatted: ValidationResult = {
+			id: data.id,
+			code: data.code,
+			result: data.result,
+			// ✅ FIX: Correctly map nested visitor info from API response
+			visitorName: data.visitor_info?.name, 
+			// ✅ FIX: Correctly map nested resident info from API response
+			residentName: data.resident_info?.name, 
+			// ✅ FIX: Correctly map nested home details from API response
+			homeDetails: data.resident_info?.home, 
+			validated_at: data.validated_at,
+			message: data.message,
+		};
+
+		return { ...response.data, data: formatted };
+	} catch (error) {
+		return handleApiError(error);
+	}
 }
 
 /**
@@ -27,31 +44,60 @@ export async function validateAccessCode(code: string): Promise<ValidationRespon
  * POST /security/validate-qr
  */
 export async function validateQRAccessCode(qrData: string): Promise<ValidationResponse> {
-  try {
-    // backend expects { qr_data: "XY4P9" }
-    const response = await apiClient.post<ApiResponse<ValidationResult>>(
-      `${SECURITY_URL}/validate-qr`,
-      { qr_data: qrData }
-    );
-    return response.data;
-  } catch (error) {
-    return handleApiError(error);
-  }
+	try {
+		// NOTE: Assuming the validate-qr endpoint returns the same nested structure as /validate
+		const response = await apiClient.post<ApiResponse<any>>(
+			`${SECURITY_URL}/validate-qr`,
+			{ qr_data: qrData }
+		);
+
+		const data = response.data.data;
+
+		const formatted: ValidationResult = {
+			id: data.id,
+			code: data.code,
+			result: data.result,
+			// Applying the same mapping fix for QR validation
+			visitorName: data.visitor_info?.name, 
+			residentName: data.resident_info?.name, 
+			homeDetails: data.resident_info?.home, 
+			validated_at: data.validated_at,
+			message: data.message,
+		};
+
+		return { ...response.data, data: formatted };
+	} catch (error) {
+		return handleApiError(error);
+	}
 }
 
 /**
  * Fetch recent validation logs by this security officer.
- * GET /security/recent-validations
+ * GET /security/recent-validations?limit=20
  */
-export async function getRecentValidations():
-  Promise<ApiResponse<{ validations: RecentValidation[] }> | ApiErrorResponse> {
-  try {
-    const response = await apiClient.get<ApiResponse<{ validations: RecentValidation[] }>>(
-      `${SECURITY_URL}/recent-validations`
-    );
-    return response.data;
-  } catch (error) {
-    return handleApiError(error);
-  }
+export async function getRecentValidations(
+	limit = 20
+): Promise<ApiResponse<{ validations: RecentValidation[] }> | ApiErrorResponse> {
+	try {
+		const token = localStorage.getItem("token");
+
+		const response = await apiClient.get<ApiResponse<{ validations: RecentValidation[] }>>(
+			`${SECURITY_URL}/recent-validations?limit=${limit}`,
+			{
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			}
+		);
+
+		// ✅ FIX: extract from response.data.data.validations, not response.data.validations
+		const validations = response.data?.data?.validations || [];
+
+		return {
+			success: true,
+			data: { validations },
+		};
+	} catch (error) {
+		return handleApiError(error);
+	}
 }
-  

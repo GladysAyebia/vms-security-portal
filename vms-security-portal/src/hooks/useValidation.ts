@@ -1,3 +1,5 @@
+// src/features/validation/hooks/useValidation.ts
+
 import { useState, useEffect } from "react";
 import {
   validateAccessCode,
@@ -31,6 +33,38 @@ export const useValidation = (): ValidationHook => {
     setErrorMessage(null);
   };
 
+  // ✅ Fix 1: Define fetchHistory *before* using it in finally blocks
+  const fetchHistory = async () => {
+    try {
+      const response = await getRecentValidations(20);
+      
+      if (response.success && response.data?.validations) {
+ const formatted: RecentValidation[] = response.data.validations.map((item: any) => ({
+ id: item.id,
+  code: item.code,
+  result: item.result as "granted" | "denied",
+  validated_at: item.validated_at,
+  // IMPROVED FALLBACK: 
+  visitor_name: item.visitor_name 
+                 ? item.visitor_name 
+                 : item.result === "granted" 
+                    ? "Name Missing (Granted)" 
+                    : "N/A", // Default for denied or unknown
+  resident_name: item.resident_name,
+  home: item.home,
+  }));
+           console.log("Raw recent validation data:", response.data.validations);
+
+        setHistory(formatted);
+      } else {
+        const errorMsg = "error" in response ? response.error?.message : "Unknown error";
+        console.error("Failed to fetch recent validations:", errorMsg);
+      }
+    } catch (error) {
+      console.error("Error fetching validation history:", error);
+    }
+  };
+
   // --- Manual validation ---
   const validate = async (code: string) => {
     reset();
@@ -57,6 +91,7 @@ export const useValidation = (): ValidationHook => {
       setState("error");
       setErrorMessage("A network error occurred.");
     } finally {
+      // ✅ Fix 2: Automatically refresh the history
       fetchHistory();
     }
   };
@@ -90,45 +125,19 @@ export const useValidation = (): ValidationHook => {
       fetchHistory();
     }
   };
-// --- Fetch history ---
-const fetchHistory = async () => {
-  const response = await getRecentValidations();
-
-  if (response.success) {
-    // ✅ Extract the actual list of validations
-const validations = response.data?.validations || [];
-
-    // ✅ Transform backend field names to match your frontend RecentValidation type
-    const formatted = validations.map((v: any) => ({
-      id: v.id,
-      code: v.code,
-      status: v.result === "granted" ? "GRANTED" : "DENIED",
-      timestamp: v.validated_at,
-      officerId: "", // backend doesn’t return this yet
-      visitorName: v.visitor_name,
-      residentName: v.resident_name,
-    }));
-
-    setHistory(
-  data.validations.map((item) => ({
-    id: item.id,
-    code: item.code,
-    result: item.result as "granted" | "denied", // ✅ correct typing
-    validated_at: item.validated_at,
-    visitor_name: item.visitor_name,
-    resident_name: item.resident_name,
-    home: item.home,
-  }))
-);
-
-  } else {
-    console.error("Failed to fetch recent validations:", response.error?.message);
-  }
-};
 
   useEffect(() => {
     fetchHistory();
   }, []);
 
-  return { state, result, history, errorMessage, validate, validateQR, fetchHistory, reset };
+  return {
+    state,
+    result,
+    history,
+    errorMessage,
+    validate,
+    validateQR,
+    fetchHistory,
+    reset,
+  };
 };
