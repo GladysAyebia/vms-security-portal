@@ -39,9 +39,9 @@ const LoginPage: React.FC = () => {
     try {
       await login({ email, password });
       // Redirection logic is handled by the useEffect above
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       // Assuming the login function throws an Error with a user-friendly message
-      const errorMessage = err.message || 'Login failed. Check your credentials.';
+      const errorMessage = err instanceof Error ? err.message : 'Login failed. Check your credentials.';
       setError(errorMessage);
       setPassword(''); // Clear password field on error
     }
@@ -59,7 +59,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div style={formContainerStyle}>
-      <h1>VMS Security Login</h1>
+      <img src="/logo.png" alt="VMS Logo" style={{ width: '250px', marginBottom: '20px' }} />
       <p style={{ color: '#666', marginBottom: '20px' }}>Access Control Portal</p>
       
       <form onSubmit={handleSubmit}>
