@@ -1,5 +1,11 @@
 import type { ApiErrorResponse, ApiResponse } from "@/types/api";
 
+/** Structure of home details. */
+export interface HomeDetails {
+    plotNumber?: string;
+    street?: string;
+  }
+
 /** Structure of the data returned on a successful code validation. */
 export interface ValidationResult {
   id?: string;
@@ -14,10 +20,7 @@ export interface ValidationResult {
   // Optional UI-related display data (used by frontend)
   visitorName?: string;
   residentName?: string;
-  homeDetails?: {
-    plotNumber?: string;
-    street?: string;
-  };
+  homeDetails?: HomeDetails;
   message?: string;
 }
 

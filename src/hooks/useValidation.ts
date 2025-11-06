@@ -33,23 +33,21 @@ export const useValidation = (): ValidationHook => {
     setErrorMessage(null);
   };
 
-  // ✅ Fix 1: Define fetchHistory *before* using it in finally blocks
   const fetchHistory = async () => {
     try {
       const response = await getRecentValidations(20);
       
       if (response.success && response.data?.validations) {
- const formatted: RecentValidation[] = response.data.validations.map((item: any) => ({
+ const formatted: RecentValidation[] = response.data.validations.map((item) => ({
  id: item.id,
   code: item.code,
   result: item.result as "granted" | "denied",
   validated_at: item.validated_at,
-  // IMPROVED FALLBACK: 
   visitor_name: item.visitor_name 
                  ? item.visitor_name 
                  : item.result === "granted" 
                     ? "Name Missing (Granted)" 
-                    : "N/A", // Default for denied or unknown
+                    : "N/A",
   resident_name: item.resident_name,
   home: item.home,
   }));
@@ -65,7 +63,6 @@ export const useValidation = (): ValidationHook => {
     }
   };
 
-  // --- Manual validation ---
   const validate = async (code: string) => {
     reset();
     setState("loading");
@@ -87,16 +84,14 @@ export const useValidation = (): ValidationHook => {
         setState("error");
         setErrorMessage(response.error?.message || "Validation failed");
       }
-    } catch (err) {
+    } catch (error) {
       setState("error");
       setErrorMessage("A network error occurred.");
     } finally {
-      // ✅ Fix 2: Automatically refresh the history
       fetchHistory();
     }
   };
 
-  // --- QR validation ---
   const validateQR = async (qrData: string) => {
     reset();
     setState("loading");
@@ -118,7 +113,7 @@ export const useValidation = (): ValidationHook => {
         setState("error");
         setErrorMessage(response.error?.message || "Validation failed");
       }
-    } catch (err) {
+    } catch (error) {
       setState("error");
       setErrorMessage("A network error occurred.");
     } finally {

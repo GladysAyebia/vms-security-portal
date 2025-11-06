@@ -2,9 +2,21 @@
 
 import { apiClient, handleApiError } from "@/api/apiClient";
 import type { ApiErrorResponse, ApiResponse } from "@/types/api";
-import type { ValidationResult, ValidationResponse, RecentValidation } from "./validationTypes";
+import type { ValidationResult, ValidationResponse, RecentValidation, HomeDetails } from "./validationTypes";
 
 const SECURITY_URL = "/security";
+
+// Define the shape of the raw data from the API
+interface RawValidationData {
+  id: string;
+  code: string;
+  result: 'granted' | 'denied';
+  visitor_info?: { name: string };
+  resident_info?: { name: string; home: HomeDetails };
+  validated_at: string;
+  message: string;
+  reason?: string;
+}
 
 /**
  * Validate a manually entered 5-character access code.
@@ -12,25 +24,25 @@ const SECURITY_URL = "/security";
  */
 export async function validateAccessCode(code: string): Promise<ValidationResponse> {
 	try {
-		const response = await apiClient.post<ApiResponse<any>>(
+        // Use RawValidationData for the expected API response
+		const response = await apiClient.post<ApiResponse<RawValidationData>>(
 			`${SECURITY_URL}/validate`,
 			{ code }
 		);
 
-		const data = response.data.data;
+		const rawData = response.data.data;
 
+        // Map the raw data to the clean ValidationResult type
 		const formatted: ValidationResult = {
-			id: data.id,
-			code: data.code,
-			result: data.result,
-			// ✅ FIX: Correctly map nested visitor info from API response
-			visitorName: data.visitor_info?.name, 
-			// ✅ FIX: Correctly map nested resident info from API response
-			residentName: data.resident_info?.name, 
-			// ✅ FIX: Correctly map nested home details from API response
-			homeDetails: data.resident_info?.home, 
-			validated_at: data.validated_at,
-			message: data.message,
+			id: rawData.id,
+			code: rawData.code,
+			result: rawData.result,
+			visitorName: rawData.visitor_info?.name, 
+			residentName: rawData.resident_info?.name, 
+			homeDetails: rawData.resident_info?.home, 
+			validated_at: rawData.validated_at,
+			message: rawData.message,
+      reason: rawData.reason,
 		};
 
 		return { ...response.data, data: formatted };
@@ -45,24 +57,24 @@ export async function validateAccessCode(code: string): Promise<ValidationRespon
  */
 export async function validateQRAccessCode(qrData: string): Promise<ValidationResponse> {
 	try {
-		// NOTE: Assuming the validate-qr endpoint returns the same nested structure as /validate
-		const response = await apiClient.post<ApiResponse<any>>(
+		const response = await apiClient.post<ApiResponse<RawValidationData>>(
 			`${SECURITY_URL}/validate-qr`,
-			{ qr_data: qrData }
+			{ qr_data: qrData } 
 		);
 
-		const data = response.data.data;
+		const rawData = response.data.data;
 
+        // Map the raw data to the clean ValidationResult type
 		const formatted: ValidationResult = {
-			id: data.id,
-			code: data.code,
-			result: data.result,
-			// Applying the same mapping fix for QR validation
-			visitorName: data.visitor_info?.name, 
-			residentName: data.resident_info?.name, 
-			homeDetails: data.resident_info?.home, 
-			validated_at: data.validated_at,
-			message: data.message,
+			id: rawData.id,
+			code: rawData.code,
+			result: rawData.result,
+			visitorName: rawData.visitor_info?.name, 
+			residentName: rawData.resident_info?.name, 
+			homeDetails: rawData.resident_info?.home, 
+			validated_at: rawData.validated_at,
+			message: rawData.message,
+      reason: rawData.reason
 		};
 
 		return { ...response.data, data: formatted };
@@ -90,7 +102,6 @@ export async function getRecentValidations(
 			}
 		);
 
-		// ✅ FIX: extract from response.data.data.validations, not response.data.validations
 		const validations = response.data?.data?.validations || [];
 
 		return {

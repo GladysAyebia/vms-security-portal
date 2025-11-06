@@ -10,7 +10,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const getStyles = (variant: 'primary' | 'secondary' | 'danger', disabled: boolean) => {
-  let base = {
+  const base = {
     padding: '10px 20px',
     borderRadius: '4px',
     border: 'none',

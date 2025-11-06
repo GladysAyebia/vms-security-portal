@@ -1,19 +1,16 @@
 
-import React, { useState, useEffect } from "react";
-import type { ChangeEvent } from "react";import { useValidation } from "@/hooks/useValidation";
+import React, { useState } from "react";
+import type { ChangeEvent } from "react";
+import { useValidation } from "@/hooks/useValidation";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { useZxing } from "react-zxing";
 import "./ValidationPortal.css";
 
-
 const ValidationPortal: React.FC = () => {
   const [codeInput, setCodeInput] = useState("");
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [isCameraReady, setIsCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [visibleCount, setVisibleCount] = useState(5);
 
   const { state, result, errorMessage, validate, validateQR, history, reset } = useValidation();
@@ -32,9 +29,20 @@ const ValidationPortal: React.FC = () => {
 
   const handleQRScan = async (data: string) => {
     if (data) {
-      stopCamera();
       setShowQRScanner(false);
-      await validateQR(data);
+      
+      // Sanitize the data from the QR scanner.
+      // It might be a URL or other string containing the code.
+      // We look for a 5-character alphanumeric sequence.
+      const match = data.toUpperCase().match(/[A-Z0-9]{5}/);
+      const sanitizedCode = match ? match[0] : null;
+
+      if (sanitizedCode) {
+        await validateQR(sanitizedCode);
+      } else {
+        // Handle invalid QR code data
+        console.error("Invalid QR code data: Could not find a 5-character code in", data);
+      }
     }
   };
 
@@ -45,46 +53,11 @@ const ValidationPortal: React.FC = () => {
     paused: !showQRScanner,
   });
 
-  const startCamera = async () => {
-    try {
-      setCameraError(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        //video: { facingMode: "environment" },
-        video: true, 
-      });
-      const video = videoRef.current as HTMLVideoElement | null;
-      if (video) {
-        video.srcObject = mediaStream;
-        video.play();
-      }
-      setStream(mediaStream);
-      setIsCameraReady(true);
-    } catch (err) {
-      console.error("Camera access error:", err);
-      setCameraError("Unable to access camera. Please check permissions.");
-    }
-  };
-
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-      setIsCameraReady(false);
-    }
-  };
-
-  useEffect(() => {
-    if (showQRScanner) startCamera();
-    else stopCamera();
-    return () => stopCamera();
-  }, [showQRScanner]);
-
   const closeModal = () => {
     reset();
     setCodeInput("");
   };
 
-  // ✅ Simplified modal with CSS fade/scale animation
   const renderModal = () => {
     if (state === "success" && result) {
       return (
@@ -134,52 +107,39 @@ const ValidationPortal: React.FC = () => {
       </header>
 
       <main className="validation-main slide-up">
-  <div className="form-split">
-    {/* QR Scanner on the left */}
-    {showQRScanner && (
-      <div className="scanner-container fade-in">
-        <video ref={videoRef} autoPlay playsInline className="scanner-video" />
-        {!isCameraReady && !cameraError && <p className="info-text">Activating camera...</p>}
-        {cameraError && <p className="error-text">{cameraError}</p>}
-        {isCameraReady && !cameraError && <p className="info-text">Scanning... Hold your QR code steady.</p>}
-      </div>
-    )}
+        <div className="form-split">
+          {showQRScanner && (
+            <div className="scanner-container fade-in">
+              <video ref={videoRef} className="scanner-video" />
+              <p className="info-text">Scanning... Hold your QR code steady.</p>
+            </div>
+          )}
 
-    {/* Validation Form on the right */}
-    <div className="form-container fade-in">
-      <h3>Validate Access Code</h3>
-      <form onSubmit={handleValidationSubmit} className="form">
-        <Input
-          label="Access Code"
-          type="text"
-          maxLength={5}
-          value={codeInput.toUpperCase()}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setCodeInput(e.target.value.toUpperCase())}
-          placeholder="Enter Access Code"
-        />
-        <Button type="submit" disabled={state === "loading"}>
-          {state === "loading" ? "Validating..." : "VALIDATE"}
-        </Button>
-      </form>
+          <div className="form-container fade-in">
+            <h3>Validate Access Code</h3>
+            <form onSubmit={handleValidationSubmit} className="form">
+              <Input
+                label="Access Code"
+                type="text"
+                maxLength={5}
+                value={codeInput.toUpperCase()}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setCodeInput(e.target.value.toUpperCase())}
+                placeholder="Enter Access Code"
+              />
+              <Button type="submit" disabled={state === "loading"}>
+                {state === "loading" ? "Validating..." : "VALIDATE"}
+              </Button>
+            </form>
 
-      <Button
-        onClick={() => setShowQRScanner(!showQRScanner)}
-        className="qr-toggle-btn fade-in"
-      >
-        {showQRScanner ? "Close Scanner" : "Scan QR Code"}
-      </Button>
-    </div>
-  </div>
-</main>
-
-      {showQRScanner && (
-        <div className="scanner-container fade-in">
-          <video ref={videoRef} autoPlay playsInline className="scanner-video" />
-          {!isCameraReady && !cameraError && <p className="info-text">Activating camera...</p>}
-          {cameraError && <p className="error-text">{cameraError}</p>}
-          {isCameraReady && !cameraError && <p className="info-text">Scanning... Hold your QR code steady.</p>}
+            <Button
+              onClick={() => setShowQRScanner(!showQRScanner)}
+              className="qr-toggle-btn fade-in"
+            >
+              {showQRScanner ? "Close Scanner" : "Scan QR Code"}
+            </Button>
+          </div>
         </div>
-      )}
+      </main>
 
       <section className="table-section fade-in">
         <h3>Recent Validations</h3>
@@ -203,7 +163,7 @@ const ValidationPortal: React.FC = () => {
                     <td>{log.visitor_name}</td>
                     <td>{log.resident_name || "N/A"}</td>
                     <td className={log.result === "granted" ? "status-granted" : "status-denied"}>
-                      {log.result.toUpperCase()}
+                      {log.result ? log.result.toUpperCase() : "N/A"}
                     </td>
                   </tr>
                 ))

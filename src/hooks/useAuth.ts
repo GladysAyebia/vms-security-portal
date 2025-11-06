@@ -17,7 +17,7 @@ export const useAuth = () => { // <--- THIS EXPORT IS CRITICAL
       try {
         const currentUser = await getCurrentUser(); 
         setUser(currentUser);
-      } catch (e) {
+      } catch (error) {
         removeToken();
         setUser(null);
       }
